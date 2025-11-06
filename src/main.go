@@ -84,28 +84,29 @@ func main() {
 
 	if *all || *upload {
 		// Handle OAuth credentials
-		var clientID, clientSecret, accessToken string
+		var oauthConfig *OAuthConfig
+		var err error
 
 		if *oauthInteractive {
-			var err error
-			clientID, clientSecret, accessToken, err = getOAuthCredentials()
+			oauthConfig, err = InteractiveOAuthSetup()
 			if err != nil {
 				log.Fatalf("OAuth setup failed: %v", err)
 			}
 		} else {
-			clientID = os.Getenv("CLIENT_ID")
-			clientSecret = os.Getenv("CLIENT_SECRET")
-			accessToken = os.Getenv("ACCESS_TOKEN")
+			oauthConfig, err = LoadOAuthConfig()
+			if err != nil {
+				log.Fatalf("Failed to load OAuth config: %v", err)
+			}
 		}
 
 		isDryRun := *dryRun
-		if !isDryRun && (clientID == "" || clientSecret == "" || accessToken == "") {
+		if !isDryRun && (oauthConfig.ClientID == "" || oauthConfig.ClientSecret == "" || oauthConfig.AccessToken == "") {
 			fmt.Println("\nWarning: OAuth credentials not provided, running in dry-run mode")
-			fmt.Println("Use --oauth-interactive for setup or set CLIENT_ID, CLIENT_SECRET, ACCESS_TOKEN")
+			fmt.Println("Use --oauth-interactive for setup or set OSM_CLIENT_ID, OSM_CLIENT_SECRET, OSM_ACCESS_TOKEN in .env")
 			isDryRun = true
 		}
 
-		if err := runUpload(isDryRun, clientID, clientSecret, accessToken); err != nil {
+		if err := runUpload(isDryRun, oauthConfig); err != nil {
 			log.Fatalf("Upload failed: %v", err)
 		}
 	}

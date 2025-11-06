@@ -198,7 +198,7 @@ func runEnrich(maxItems int) error {
 	fmt.Printf("  Alpine huts: %d\n", len(enriched.AlpineHuts))
 	fmt.Printf("  Train stations: %d\n", len(enriched.TrainStations))
 	fmt.Printf("  Other accommodations: %d\n", len(enriched.OtherAccommodations))
-	fmt.Println("✓ Enriched data saved to output/osm_data_enriched.json\n")
+	fmt.Println("✓ Enriched data saved to output/osm_data_enriched.json")
 
 	return nil
 }

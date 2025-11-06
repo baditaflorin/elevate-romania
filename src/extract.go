@@ -161,7 +161,7 @@ func runExtract() error {
 
 	fmt.Printf("\n✓ Extracted %d train stations\n", len(data.TrainStations))
 	fmt.Printf("✓ Extracted %d accommodations\n", len(data.Accommodations))
-	fmt.Println("✓ Data saved to output/osm_data_raw.json\n")
+	fmt.Println("✓ Data saved to output/osm_data_raw.json")
 
 	return nil
 }
