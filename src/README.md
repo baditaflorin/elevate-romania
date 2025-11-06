@@ -46,12 +46,12 @@ go build -o elevate-romania .
 Create a `.env` file:
 
 ```env
-CLIENT_ID=your_client_id
-CLIENT_SECRET=your_client_secret
-ACCESS_TOKEN=your_access_token
+OSM_CLIENT_ID=your_client_id
+OSM_CLIENT_SECRET=your_client_secret
+OSM_ACCESS_TOKEN=your_access_token
 ```
 
-Or use the interactive OAuth flow with `--oauth-interactive`.
+Alternatively, use the interactive OAuth flow with `--oauth-interactive`, which will automatically save credentials to `.env`.
 
 ## Usage
 

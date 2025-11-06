@@ -115,7 +115,7 @@ func runFilter() error {
 	fmt.Printf("\n✓ Train stations without elevation: %d\n", len(filtered.TrainStations))
 	fmt.Printf("✓ Alpine huts without elevation: %d (PRIORITY)\n", len(filtered.AlpineHuts))
 	fmt.Printf("✓ Other accommodations without elevation: %d\n", len(filtered.OtherAccommodations))
-	fmt.Println("✓ Filtered data saved to output/osm_data_filtered.json\n")
+	fmt.Println("✓ Filtered data saved to output/osm_data_filtered.json")
 
 	return nil
 }

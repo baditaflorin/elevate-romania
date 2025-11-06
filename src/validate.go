@@ -173,7 +173,7 @@ func runValidate() error {
 		return err
 	}
 
-	fmt.Println("\n✓ Validation complete! Results saved to output/osm_data_validated.json\n")
+	fmt.Println("\n✓ Validation complete! Results saved to output/osm_data_validated.json")
 
 	return nil
 }
