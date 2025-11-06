@@ -31,9 +31,8 @@ func NewElevationEnricher(apiType string, rateLimit float64) *ElevationEnricher 
 		APIType:   apiType,
 		RateLimit: time.Duration(rateLimit * float64(time.Second)),
 	}
-
 	if apiType == "opentopo" {
-		e.BaseURL = "https://api.opentopodata.org/v1/srtm30m"
+		e.BaseURL = "https://go.proxy.okssh.com/?url=https://api.opentopodata.org/v1/srtm30m"
 	} else {
 		e.BaseURL = "https://api.open-elevation.com/api/v1/lookup"
 	}
@@ -163,7 +162,7 @@ func runEnrich(maxItems int) error {
 	}
 
 	// Enrich with elevation
-	enricher := NewElevationEnricher("opentopo", 1.0)
+	enricher := NewElevationEnricher("opentopo", 0.1)
 
 	enriched := &EnrichedData{
 		TrainStations:       []OSMElement{},
