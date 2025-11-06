@@ -38,6 +38,8 @@ func LoadOAuthConfig() (*OAuthConfig, error) {
 }
 
 // SaveOAuthConfig saves OAuth configuration to .env file
+// File permissions are set to 0600 (owner read/write only) for security
+// to prevent unauthorized access to OAuth credentials
 func SaveOAuthConfig(config *OAuthConfig) error {
 	envFile := ".env"
 	

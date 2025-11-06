@@ -85,14 +85,9 @@ func TestMergeTags(t *testing.T) {
 }
 
 func TestOAuthConfigSaveLoad(t *testing.T) {
-	// Create a temporary .env file
-	tmpEnv := "/tmp/test_elevate_romania.env"
-	
-	// Clean up
-	defer func() {
-		// Remove test file after test
-		_ = os.Remove(tmpEnv)
-	}()
+	// Create a temporary .env file using t.TempDir()
+	tmpDir := t.TempDir()
+	tmpEnv := tmpDir + "/test_elevate_romania.env"
 
 	// Test saving
 	config := &OAuthConfig{

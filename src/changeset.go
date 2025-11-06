@@ -10,9 +10,10 @@ import (
 
 // ChangesetManager handles OSM changeset operations
 type ChangesetManager struct {
-	client      *http.Client
-	changesetID int
-	dryRun      bool
+	client         *http.Client
+	changesetID    int
+	changesetOpen  bool
+	dryRun         bool
 }
 
 // OSMChangeset represents the changeset XML structure
@@ -35,8 +36,9 @@ type ChangesetTag struct {
 // NewChangesetManager creates a new changeset manager
 func NewChangesetManager(client *http.Client, dryRun bool) *ChangesetManager {
 	return &ChangesetManager{
-		client: client,
-		dryRun: dryRun,
+		client:        client,
+		dryRun:        dryRun,
+		changesetOpen: false,
 	}
 }
 
@@ -44,6 +46,7 @@ func NewChangesetManager(client *http.Client, dryRun bool) *ChangesetManager {
 func (cm *ChangesetManager) Create(comment string) error {
 	if cm.dryRun {
 		fmt.Printf("[DRY-RUN] Would create changeset: %s\n", comment)
+		cm.changesetOpen = true
 		return nil
 	}
 
@@ -84,6 +87,7 @@ func (cm *ChangesetManager) Create(comment string) error {
 	}
 
 	fmt.Sscanf(string(body), "%d", &cm.changesetID)
+	cm.changesetOpen = true
 	fmt.Printf("Created changeset #%d\n", cm.changesetID)
 
 	return nil
@@ -91,7 +95,7 @@ func (cm *ChangesetManager) Create(comment string) error {
 
 // Close closes the changeset
 func (cm *ChangesetManager) Close() error {
-	if cm.dryRun || cm.changesetID == 0 {
+	if cm.dryRun || !cm.changesetOpen {
 		return nil
 	}
 
@@ -111,6 +115,7 @@ func (cm *ChangesetManager) Close() error {
 		return fmt.Errorf("failed to close changeset: status code %d", resp.StatusCode)
 	}
 
+	cm.changesetOpen = false
 	fmt.Printf("Closed changeset #%d\n", cm.changesetID)
 	return nil
 }
@@ -118,4 +123,9 @@ func (cm *ChangesetManager) Close() error {
 // GetID returns the current changeset ID
 func (cm *ChangesetManager) GetID() int {
 	return cm.changesetID
+}
+
+// IsOpen returns whether the changeset is currently open
+func (cm *ChangesetManager) IsOpen() bool {
+	return cm.changesetOpen
 }

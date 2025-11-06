@@ -90,10 +90,10 @@ func (u *OSMUploader) UploadElement(element OSMElement) (bool, string) {
 	}
 
 	// Get changeset ID
-	changesetID := u.changesetManager.GetID()
-	if changesetID == 0 {
+	if !u.changesetManager.IsOpen() {
 		return false, "No active changeset"
 	}
+	changesetID := u.changesetManager.GetID()
 
 	// Prepare new tags to merge
 	newTags := map[string]string{
