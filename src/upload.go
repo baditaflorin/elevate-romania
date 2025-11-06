@@ -1,32 +1,20 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
-	"context"
-	"encoding/xml"
 	"fmt"
-	"io"
 	"net/http"
-	"os"
-	"strings"
 	"time"
-
-	"golang.org/x/oauth2"
 )
 
-var (
-	redirectURI  = "http://127.0.0.1:8080/callback"
-	oauth2Config *oauth2.Config
-	authCode     string
-)
-
+// OSMUploader handles uploading changes to OpenStreetMap
 type OSMUploader struct {
-	client      *http.Client
-	changesetID int
-	dryRun      bool
+	client           *http.Client
+	changesetManager *ChangesetManager
+	apiClient        *OSMAPIClient
+	dryRun           bool
 }
 
+// UploadStats contains statistics about uploads
 type UploadStats struct {
 	Total      int           `json:"total"`
 	Successful int           `json:"successful"`
@@ -34,160 +22,56 @@ type UploadStats struct {
 	Errors     []UploadError `json:"errors"`
 }
 
+// UploadError represents an error during upload
 type UploadError struct {
 	ElementType string `json:"element_type"`
 	ElementID   int64  `json:"element_id"`
 	Error       string `json:"error"`
 }
 
-type OSMChangeset struct {
-	XMLName   xml.Name      `xml:"osm"`
-	Changeset ChangesetData `xml:"changeset"`
-}
-
-type ChangesetData struct {
-	Tags []ChangesetTag `xml:"tag"`
-}
-
-type ChangesetTag struct {
-	Key   string `xml:"k,attr"`
-	Value string `xml:"v,attr"`
-}
-
-type OSMNode struct {
-	XMLName xml.Name `xml:"osm"`
-	Node    NodeData `xml:"node"`
-}
-
-type NodeData struct {
-	Changeset int64     `xml:"changeset,attr"`
-	Lat       float64   `xml:"lat,attr"`
-	Lon       float64   `xml:"lon,attr"`
-	Tags      []NodeTag `xml:"tag"`
-}
-
-type NodeTag struct {
-	Key   string `xml:"k,attr"`
-	Value string `xml:"v,attr"`
-}
-
-func NewOSMUploader(clientID, clientSecret, accessToken string, dryRun bool) (*OSMUploader, error) {
+// NewOSMUploader creates a new OSM uploader
+func NewOSMUploader(oauthConfig *OAuthConfig, dryRun bool) (*OSMUploader, error) {
 	uploader := &OSMUploader{
 		dryRun: dryRun,
 	}
 
 	if dryRun {
 		fmt.Println("Running in DRY-RUN mode - no changes will be uploaded")
+		uploader.changesetManager = NewChangesetManager(nil, true)
+		uploader.apiClient = NewOSMAPIClient(nil, true)
 		return uploader, nil
 	}
 
-	if accessToken == "" {
+	if oauthConfig.AccessToken == "" {
 		return nil, fmt.Errorf("OAuth access token required for actual upload")
 	}
 
-	// Create OAuth2 config
-	oauth2Config = &oauth2.Config{
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		RedirectURL:  redirectURI,
-		Scopes: []string{
-			"read_prefs",
-			"write_prefs",
-			"write_api",
-		},
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  "https://www.openstreetmap.org/oauth2/authorize",
-			TokenURL: "https://www.openstreetmap.org/oauth2/token",
-		},
+	// Create OAuth HTTP client
+	_, client, err := CreateOAuthClient(oauthConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create OAuth client: %v", err)
 	}
 
-	// Create HTTP client with token
-	token := &oauth2.Token{
-		AccessToken: accessToken,
-		TokenType:   "Bearer",
-	}
-
-	ctx := context.Background()
-	uploader.client = oauth2Config.Client(ctx, token)
+	uploader.client = client
+	uploader.changesetManager = NewChangesetManager(client, false)
+	uploader.apiClient = NewOSMAPIClient(client, false)
 
 	fmt.Println("Connected to OSM API with OAuth 2.0")
 
 	return uploader, nil
 }
 
+// CreateChangeset creates a new changeset
 func (u *OSMUploader) CreateChangeset(comment string) error {
-	if u.dryRun {
-		fmt.Printf("[DRY-RUN] Would create changeset: %s\n", comment)
-		return nil
-	}
-
-	changesetXML := OSMChangeset{
-		Changeset: ChangesetData{
-			Tags: []ChangesetTag{
-				{Key: "created_by", Value: "elevate-romania"},
-				{Key: "comment", Value: comment},
-			},
-		},
-	}
-
-	xmlData, err := xml.Marshal(changesetXML)
-	if err != nil {
-		return fmt.Errorf("failed to marshal changeset XML: %v", err)
-	}
-
-	req, err := http.NewRequest("PUT", "https://api.openstreetmap.org/api/0.6/changeset/create", bytes.NewReader(xmlData))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %v", err)
-	}
-	req.Header.Set("Content-Type", "text/xml")
-
-	resp, err := u.client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to create changeset: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("failed to create changeset: status code %d: %s", resp.StatusCode, string(body))
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read response body: %v", err)
-	}
-
-	fmt.Sscanf(string(body), "%d", &u.changesetID)
-	fmt.Printf("Created changeset #%d\n", u.changesetID)
-
-	return nil
+	return u.changesetManager.Create(comment)
 }
 
+// CloseChangeset closes the current changeset
 func (u *OSMUploader) CloseChangeset() error {
-	if u.dryRun || u.changesetID == 0 {
-		return nil
-	}
-
-	url := fmt.Sprintf("https://api.openstreetmap.org/api/0.6/changeset/%d/close", u.changesetID)
-	req, err := http.NewRequest("PUT", url, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create request: %v", err)
-	}
-
-	resp, err := u.client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to close changeset: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to close changeset: status code %d", resp.StatusCode)
-	}
-
-	fmt.Printf("Closed changeset #%d\n", u.changesetID)
-	return nil
+	return u.changesetManager.Close()
 }
 
+// UploadElement uploads a single element to OSM
 func (u *OSMUploader) UploadElement(element OSMElement) (bool, string) {
 	elementType := element.Type
 	elementID := element.ID
@@ -205,14 +89,72 @@ func (u *OSMUploader) UploadElement(element OSMElement) (bool, string) {
 		return true, "Dry-run successful"
 	}
 
-	// In actual implementation, you would:
-	// 1. Fetch the current element from OSM
-	// 2. Update its tags
-	// 3. Upload the modified element
-	// For now, we'll just log what would be done
+	// Get changeset ID
+	changesetID := u.changesetManager.GetID()
+	if changesetID == 0 {
+		return false, "No active changeset"
+	}
+
+	// Prepare new tags to merge
+	newTags := map[string]string{
+		"ele":        eleValue,
+		"ele:source": "SRTM",
+	}
+
+	// Fetch current element and update it
+	var err error
+	if elementType == "node" {
+		err = u.uploadNode(elementID, newTags, changesetID)
+	} else if elementType == "way" {
+		err = u.uploadWay(elementID, newTags, changesetID)
+	} else {
+		return false, fmt.Sprintf("Unsupported element type: %s", elementType)
+	}
+
+	if err != nil {
+		return false, fmt.Sprintf("Upload failed: %v", err)
+	}
 
 	fmt.Printf("✓ Updated %s %d with ele=%s\n", elementType, elementID, eleValue)
 	return true, "Upload successful"
+}
+
+// uploadNode fetches and updates a node
+func (u *OSMUploader) uploadNode(nodeID int64, newTags map[string]string, changesetID int) error {
+	// Fetch current node
+	node, err := u.apiClient.FetchNode(nodeID)
+	if err != nil {
+		return fmt.Errorf("failed to fetch node: %v", err)
+	}
+
+	// Merge tags
+	node.Tags = MergeTags(node.Tags, newTags)
+
+	// Update node
+	if err := u.apiClient.UpdateNode(node, changesetID); err != nil {
+		return fmt.Errorf("failed to update node: %v", err)
+	}
+
+	return nil
+}
+
+// uploadWay fetches and updates a way
+func (u *OSMUploader) uploadWay(wayID int64, newTags map[string]string, changesetID int) error {
+	// Fetch current way
+	way, err := u.apiClient.FetchWay(wayID)
+	if err != nil {
+		return fmt.Errorf("failed to fetch way: %v", err)
+	}
+
+	// Merge tags
+	way.Tags = MergeTags(way.Tags, newTags)
+
+	// Update way
+	if err := u.apiClient.UpdateWay(way, changesetID); err != nil {
+		return fmt.Errorf("failed to update way: %v", err)
+	}
+
+	return nil
 }
 
 func (u *OSMUploader) UploadElements(elements []OSMElement, categoryName string) UploadStats {
@@ -288,7 +230,8 @@ func (u *OSMUploader) UploadAll(data ValidatedData) (map[string]UploadStats, err
 	return allStats, nil
 }
 
-func runUpload(dryRun bool, clientID, clientSecret, accessToken string) error {
+// runUpload runs the upload process
+func runUpload(dryRun bool, oauthConfig *OAuthConfig) error {
 	fmt.Println("\n" + string(repeat('=', 60)))
 	if dryRun {
 		fmt.Println("STEP 6: UPLOAD (DRY-RUN) - Preview changes")
@@ -304,7 +247,7 @@ func runUpload(dryRun bool, clientID, clientSecret, accessToken string) error {
 	}
 
 	// Upload
-	uploader, err := NewOSMUploader(clientID, clientSecret, accessToken, dryRun)
+	uploader, err := NewOSMUploader(oauthConfig, dryRun)
 	if err != nil {
 		return err
 	}
@@ -343,80 +286,4 @@ func runUpload(dryRun bool, clientID, clientSecret, accessToken string) error {
 	fmt.Println("\n" + string(repeat('=', 60)) + "\n")
 
 	return nil
-}
-
-func getOAuthCredentials() (string, string, string, error) {
-	reader := bufio.NewReader(os.Stdin)
-
-	fmt.Println(string(repeat('=', 60)))
-	fmt.Println("OSM OAuth 2.0 Setup")
-	fmt.Println(string(repeat('=', 60)))
-
-	fmt.Print("\nEnter Client ID: ")
-	clientID, _ := reader.ReadString('\n')
-	clientID = strings.TrimSpace(clientID)
-
-	fmt.Print("Enter Client Secret: ")
-	clientSecret, _ := reader.ReadString('\n')
-	clientSecret = strings.TrimSpace(clientSecret)
-
-	fmt.Println("\nStarting OAuth 2.0 Flow")
-	fmt.Println("Make sure your redirect URI is set to: http://127.0.0.1:8080/callback")
-	fmt.Println("A browser window will open for you to authorize the application.")
-	fmt.Print("\nPress Enter to continue...")
-	reader.ReadString('\n')
-
-	// Start OAuth flow (simplified - in production, implement full flow with callback server)
-	accessToken, err := startOAuthFlow(clientID, clientSecret)
-	if err != nil {
-		return "", "", "", err
-	}
-
-	fmt.Println("✓ Access token obtained successfully!")
-
-	return clientID, clientSecret, accessToken, nil
-}
-
-func startOAuthFlow(clientID, clientSecret string) (string, error) {
-	// This is a simplified version - in production, you'd implement the full OAuth flow
-	// with a local callback server as in your original code
-
-	authURL := fmt.Sprintf("https://www.openstreetmap.org/oauth2/authorize?client_id=%s&redirect_uri=%s&response_type=code&scope=read_prefs+write_api",
-		clientID, redirectURI)
-
-	fmt.Println("\nPlease open this URL in your browser:")
-	fmt.Println(authURL)
-
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("\nEnter authorization code: ")
-	code, _ := reader.ReadString('\n')
-	code = strings.TrimSpace(code)
-
-	// Exchange code for token
-	token, err := exchangeCodeForToken(clientID, clientSecret, code)
-	if err != nil {
-		return "", err
-	}
-
-	return token, nil
-}
-
-func exchangeCodeForToken(clientID, clientSecret, code string) (string, error) {
-	oauth2Config = &oauth2.Config{
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		RedirectURL:  redirectURI,
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  "https://www.openstreetmap.org/oauth2/authorize",
-			TokenURL: "https://www.openstreetmap.org/oauth2/token",
-		},
-	}
-
-	ctx := context.Background()
-	token, err := oauth2Config.Exchange(ctx, code)
-	if err != nil {
-		return "", fmt.Errorf("failed to exchange token: %v", err)
-	}
-
-	return token.AccessToken, nil
 }
