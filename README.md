@@ -22,11 +22,36 @@ Acest proiect implementează un workflow complet automatizat:
 
 ## 📦 Instalare
 
-### Cerințe
+### 🐳 Opțiunea 1: Docker (Recomandat - Fără Python!)
+
+**Cel mai simplu mod - nu necesită Python sau pip!**
+
+```bash
+# Clonare repository
+git clone https://github.com/baditaflorin/elevate-romania.git
+cd elevate-romania
+
+# Build Docker image
+docker-compose build
+
+# Rulare demo
+./demo.sh
+
+# Sau rulare completă
+./run.sh --all --dry-run --limit 10
+```
+
+📖 **Vezi [DOCKER.md](DOCKER.md) pentru ghid complet Docker**
+
+### Opțiunea 2: Python Direct
+
+Dacă preferi să rulezi Python local:
+
+#### Cerințe
 - Python 3.7+
 - pip
 
-### Pași
+#### Pași
 
 ```bash
 # Clonare repository
@@ -39,7 +64,29 @@ pip install -r requirements.txt
 
 ## 🎯 Utilizare
 
-### Workflow complet (recomandat pentru prima rulare)
+### 🐳 Cu Docker (Recomandat)
+
+```bash
+# Demo rapid
+./demo.sh
+
+# Workflow complet
+./run.sh --all --dry-run --limit 10
+
+# Pași separați
+./run.sh --extract
+./run.sh --filter
+./run.sh --enrich --limit 5
+./run.sh --validate
+./run.sh --export-csv
+./run.sh --upload --dry-run
+```
+
+📖 **Vezi [DOCKER.md](DOCKER.md) pentru ghid complet și exemple**
+
+### Cu Python Direct
+
+#### Workflow complet (recomandat pentru prima rulare)
 
 ```bash
 # Dry-run complet - nu modifică nimic în OSM
@@ -49,7 +96,7 @@ python main.py --all --dry-run
 python main.py --all --dry-run --limit 10
 ```
 
-### Workflow pas cu pas
+#### Workflow pas cu pas
 
 ```bash
 # 1. Extrage date din OSM
