@@ -29,7 +29,7 @@ type OpenElevationResponse struct {
 func NewElevationEnricher(apiType string, rateLimit float64) *ElevationEnricher {
 	e := &ElevationEnricher{
 		APIType:   apiType,
-		RateLimit: time.Duration(rateLimit * float64(time.Second)),
+		RateLimit: time.Duration(rateLimit * float64(time.Millisecond)),
 	}
 	if apiType == "opentopo" {
 		e.BaseURL = "https://go.proxy.okssh.com/?url=https://api.opentopodata.org/v1/srtm30m"

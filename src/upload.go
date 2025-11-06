@@ -192,7 +192,7 @@ func (u *OSMUploader) UploadElements(elements []OSMElement, categoryName string)
 
 		// Rate limiting
 		if !u.dryRun {
-			time.Sleep(time.Second)
+			time.Sleep(time.Millisecond * 10)
 		}
 	}
 

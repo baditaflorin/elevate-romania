@@ -74,7 +74,7 @@ func (e *OverpassExtractor) queryOverpass(query string) ([]OSMElement, error) {
 func (e *OverpassExtractor) GetTrainStations() ([]OSMElement, error) {
 	query := `
 [out:json][timeout:300];
-area["name"="Bihor"]["admin_level"="4"]->.romania;
+area["name"="Hunedoara"]["admin_level"="4"]->.romania;
 (
   node["railway"="station"](area.romania);
   node["railway"="halt"](area.romania);
@@ -95,7 +95,7 @@ out body;
 func (e *OverpassExtractor) GetAccommodations() ([]OSMElement, error) {
 	query := `
 [out:json][timeout:300];
-area["name"="Bihor"]["admin_level"="4"]->.romania;
+area["name"="Hunedoara"]["admin_level"="4"]->.romania;
 (
   node["tourism"="hotel"](area.romania);
   node["tourism"="guest_house"](area.romania);
