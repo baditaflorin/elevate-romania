@@ -1,0 +1,2 @@
+requests>=2.31.0
+osmapi>=4.0.0
