@@ -102,7 +102,7 @@ class ElevationValidator:
 
 if __name__ == "__main__":
     # Load enriched data
-    with open("osm_data_enriched.json", "r", encoding="utf-8") as f:
+    with open("output/osm_data_enriched.json", "r", encoding="utf-8") as f:
         data = json.load(f)
     
     # Validate
@@ -118,7 +118,7 @@ if __name__ == "__main__":
             "valid_elements": validation["valid"]
         }
     
-    with open("osm_data_validated.json", "w", encoding="utf-8") as f:
+    with open("output/osm_data_validated.json", "w", encoding="utf-8") as f:
         json.dump(output, f, indent=2, ensure_ascii=False)
     
-    print("\nValidation complete! Results saved to osm_data_validated.json")
+    print("\nValidation complete! Results saved to output/osm_data_validated.json")

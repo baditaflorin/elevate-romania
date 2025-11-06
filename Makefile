@@ -10,7 +10,7 @@ build: ## Build Docker image
 	docker compose build
 
 demo: ## Run demo with sample data
-	docker compose run --rm elevate-romania python demo.py
+	docker compose run --rm --entrypoint "" elevate-romania python demo.py
 
 run: ## Run with arguments (use ARGS="--help")
 	docker compose run --rm elevate-romania $(ARGS)

@@ -128,7 +128,7 @@ if __name__ == "__main__":
     import json
     
     # Load filtered data
-    with open("osm_data_filtered.json", "r", encoding="utf-8") as f:
+    with open("output/osm_data_filtered.json", "r", encoding="utf-8") as f:
         data = json.load(f)
     
     # Enrich with elevation
@@ -152,7 +152,7 @@ if __name__ == "__main__":
         enriched_data["other_accommodations"] = enricher.enrich_elements(data["other_accommodations"])
     
     # Save enriched data
-    with open("osm_data_enriched.json", "w", encoding="utf-8") as f:
+    with open("output/osm_data_enriched.json", "w", encoding="utf-8") as f:
         json.dump(enriched_data, f, indent=2, ensure_ascii=False)
     
     print("\nEnrichment complete!")

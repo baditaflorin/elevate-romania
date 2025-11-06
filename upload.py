@@ -141,7 +141,7 @@ class OSMUploader:
 
 if __name__ == "__main__":
     # Load validated data
-    with open("osm_data_validated.json", "r", encoding="utf-8") as f:
+    with open("output/osm_data_validated.json", "r", encoding="utf-8") as f:
         data = json.load(f)
     
     # Extract valid elements

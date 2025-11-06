@@ -37,12 +37,12 @@ def run_extract():
     data = extractor.get_all_data()
     
     # Save to file
-    with open("osm_data_raw.json", "w", encoding="utf-8") as f:
+    with open("output/osm_data_raw.json", "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
     
     print(f"\n✓ Extracted {len(data['train_stations'])} train stations")
     print(f"✓ Extracted {len(data['accommodations'])} accommodations")
-    print("✓ Data saved to osm_data_raw.json\n")
+    print("✓ Data saved to output/osm_data_raw.json\n")
     
     return data
 
@@ -55,10 +55,10 @@ def run_filter():
     
     # Load raw data
     try:
-        with open("osm_data_raw.json", "r", encoding="utf-8") as f:
+        with open("output/osm_data_raw.json", "r", encoding="utf-8") as f:
             data = json.load(f)
     except FileNotFoundError:
-        print("Error: osm_data_raw.json not found. Run --extract first.")
+        print("Error: output/osm_data_raw.json not found. Run --extract first.")
         return None
     
     # Filter
@@ -66,13 +66,13 @@ def run_filter():
     filtered = filter_obj.filter_data(data)
     
     # Save filtered data
-    with open("osm_data_filtered.json", "w", encoding="utf-8") as f:
+    with open("output/osm_data_filtered.json", "w", encoding="utf-8") as f:
         json.dump(filtered, f, indent=2, ensure_ascii=False)
     
     print(f"\n✓ Train stations without elevation: {len(filtered['train_stations'])}")
     print(f"✓ Alpine huts without elevation: {len(filtered['alpine_huts'])} (PRIORITY)")
     print(f"✓ Other accommodations without elevation: {len(filtered['other_accommodations'])}")
-    print("✓ Filtered data saved to osm_data_filtered.json\n")
+    print("✓ Filtered data saved to output/osm_data_filtered.json\n")
     
     return filtered
 
@@ -85,10 +85,10 @@ def run_enrich(max_items=None):
     
     # Load filtered data
     try:
-        with open("osm_data_filtered.json", "r", encoding="utf-8") as f:
+        with open("output/osm_data_filtered.json", "r", encoding="utf-8") as f:
             data = json.load(f)
     except FileNotFoundError:
-        print("Error: osm_data_filtered.json not found. Run --filter first.")
+        print("Error: output/osm_data_filtered.json not found. Run --filter first.")
         return None
     
     # Enrich with elevation
@@ -118,14 +118,14 @@ def run_enrich(max_items=None):
         )
     
     # Save enriched data
-    with open("osm_data_enriched.json", "w", encoding="utf-8") as f:
+    with open("output/osm_data_enriched.json", "w", encoding="utf-8") as f:
         json.dump(enriched_data, f, indent=2, ensure_ascii=False)
     
     print("\n✓ Enrichment complete!")
     print(f"  Alpine huts: {len(enriched_data.get('alpine_huts', []))}")
     print(f"  Train stations: {len(enriched_data.get('train_stations', []))}")
     print(f"  Other accommodations: {len(enriched_data.get('other_accommodations', []))}")
-    print("✓ Enriched data saved to osm_data_enriched.json\n")
+    print("✓ Enriched data saved to output/osm_data_enriched.json\n")
     
     return enriched_data
 
@@ -138,10 +138,10 @@ def run_validate():
     
     # Load enriched data
     try:
-        with open("osm_data_enriched.json", "r", encoding="utf-8") as f:
+        with open("output/osm_data_enriched.json", "r", encoding="utf-8") as f:
             data = json.load(f)
     except FileNotFoundError:
-        print("Error: osm_data_enriched.json not found. Run --enrich first.")
+        print("Error: output/osm_data_enriched.json not found. Run --enrich first.")
         return None
     
     # Validate
@@ -157,10 +157,10 @@ def run_validate():
             "valid_elements": validation["valid"]
         }
     
-    with open("osm_data_validated.json", "w", encoding="utf-8") as f:
+    with open("output/osm_data_validated.json", "w", encoding="utf-8") as f:
         json.dump(output, f, indent=2, ensure_ascii=False)
     
-    print("\n✓ Validation complete! Results saved to osm_data_validated.json\n")
+    print("\n✓ Validation complete! Results saved to output/osm_data_validated.json\n")
     
     return results
 
@@ -173,17 +173,17 @@ def run_export_csv():
     
     # Load validated data
     try:
-        with open("osm_data_validated.json", "r", encoding="utf-8") as f:
+        with open("output/osm_data_validated.json", "r", encoding="utf-8") as f:
             data = json.load(f)
     except FileNotFoundError:
-        print("Error: osm_data_validated.json not found. Run --validate first.")
+        print("Error: output/osm_data_validated.json not found. Run --validate first.")
         return None
     
     # Export to CSV
     exporter = CSVExporter()
-    count = exporter.export_to_csv(data, "elevation_data.csv")
+    count = exporter.export_to_csv(data, "output/elevation_data.csv")
     
-    print(f"\n✓ Exported {count} elements to elevation_data.csv\n")
+    print(f"\n✓ Exported {count} elements to output/elevation_data.csv\n")
     
     return count
 
@@ -199,10 +199,10 @@ def run_upload(dry_run=True, username=None, password=None):
     
     # Load validated data
     try:
-        with open("osm_data_validated.json", "r", encoding="utf-8") as f:
+        with open("output/osm_data_validated.json", "r", encoding="utf-8") as f:
             data = json.load(f)
     except FileNotFoundError:
-        print("Error: osm_data_validated.json not found. Run --validate first.")
+        print("Error: output/osm_data_validated.json not found. Run --validate first.")
         return None
     
     # Extract valid elements

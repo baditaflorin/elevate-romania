@@ -91,10 +91,10 @@ class CSVExporter:
 
 if __name__ == "__main__":
     # Load validated data
-    with open("osm_data_validated.json", "r", encoding="utf-8") as f:
+    with open("output/osm_data_validated.json", "r", encoding="utf-8") as f:
         data = json.load(f)
     
     # Export to CSV
     exporter = CSVExporter()
-    exporter.export_to_csv(data, "elevation_data.csv")
+    exporter.export_to_csv(data, "output/elevation_data.csv")
     print("CSV export complete!")

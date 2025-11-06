@@ -79,7 +79,7 @@ class ElevationFilter:
 
 if __name__ == "__main__":
     # Load raw data
-    with open("osm_data_raw.json", "r", encoding="utf-8") as f:
+    with open("output/osm_data_raw.json", "r", encoding="utf-8") as f:
         data = json.load(f)
     
     # Filter
@@ -87,10 +87,10 @@ if __name__ == "__main__":
     filtered = filter_obj.filter_data(data)
     
     # Save filtered data
-    with open("osm_data_filtered.json", "w", encoding="utf-8") as f:
+    with open("output/osm_data_filtered.json", "w", encoding="utf-8") as f:
         json.dump(filtered, f, indent=2, ensure_ascii=False)
     
     print(f"Train stations without elevation: {len(filtered['train_stations'])}")
     print(f"Alpine huts without elevation: {len(filtered['alpine_huts'])}")
     print(f"Other accommodations without elevation: {len(filtered['other_accommodations'])}")
-    print("Filtered data saved to osm_data_filtered.json")
+    print("Filtered data saved to output/osm_data_filtered.json")
