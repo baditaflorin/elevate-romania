@@ -91,9 +91,9 @@ if __name__ == "__main__":
     data = extractor.get_all_data()
     
     # Save to file
-    with open("osm_data_raw.json", "w", encoding="utf-8") as f:
+    with open("output/osm_data_raw.json", "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
     
     print(f"Total train stations: {len(data['train_stations'])}")
     print(f"Total accommodations: {len(data['accommodations'])}")
-    print("Data saved to osm_data_raw.json")
+    print("Data saved to output/osm_data_raw.json")
