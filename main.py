@@ -295,9 +295,18 @@ Examples:
             run_export_csv()
         
         if args.all or args.upload:
-            # Default to dry-run unless explicitly disabled
-            dry_run = args.dry_run if args.dry_run else True
-            if not dry_run and not args.username:
+            # Determine dry-run mode:
+            # - If --dry-run flag is provided, use dry-run mode
+            # - If username and password are provided (without --dry-run), disable dry-run
+            # - Otherwise, default to dry-run mode
+            if args.dry_run:
+                dry_run = True
+            elif args.username and args.password:
+                dry_run = False
+            else:
+                dry_run = True
+            
+            if not dry_run and (not args.username or not args.password):
                 print("\nError: Username and password required for actual upload")
                 print("Use --dry-run for testing or provide --username and --password")
                 return
