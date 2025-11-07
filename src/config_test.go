@@ -32,6 +32,13 @@ func TestConfigSetDefault(t *testing.T) {
 	if got := config.Get("KEY1"); got != "override" {
 		t.Errorf("Set() = %v, want %v", got, "override")
 	}
+	
+	// SetDefault should override empty values
+	config.Set("KEY2", "")
+	config.SetDefault("KEY2", "default_for_empty")
+	if got := config.Get("KEY2"); got != "default_for_empty" {
+		t.Errorf("SetDefault() should override empty value, got %v, want %v", got, "default_for_empty")
+	}
 }
 
 func TestConfigGetInt(t *testing.T) {

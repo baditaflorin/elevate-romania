@@ -5,6 +5,9 @@ import (
 	"regexp"
 )
 
+// Pre-compiled regex for elevation validation
+var elevationRegex = regexp.MustCompile(`^-?\d+(\.\d+)?$`)
+
 // ElementValidationResult contains the result of element validation
 type ElementValidationResult struct {
 	Valid   bool
@@ -63,10 +66,9 @@ func (v *ElementValidatorImpl) ValidateElevation(element OSMElement) (bool, stri
 		return false, "element has no elevation data"
 	}
 	
-	// Check elevation format (should be numeric)
+	// Check elevation format (should be numeric) using pre-compiled regex
 	eleValue := element.Tags["ele"]
-	matched, _ := regexp.MatchString(`^-?\d+(\.\d+)?$`, eleValue)
-	if !matched {
+	if !elevationRegex.MatchString(eleValue) {
 		return false, fmt.Sprintf("invalid elevation format: %s", eleValue)
 	}
 	

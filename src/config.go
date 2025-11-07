@@ -49,9 +49,10 @@ func (c *Config) Set(key, value string) {
 	c.values[key] = value
 }
 
-// SetDefault sets a configuration value only if it doesn't exist
+// SetDefault sets a configuration value only if it doesn't exist or is empty
 func (c *Config) SetDefault(key, value string) {
-	if _, exists := c.values[key]; !exists {
+	existingValue, exists := c.values[key]
+	if !exists || existingValue == "" {
 		c.values[key] = value
 	}
 }

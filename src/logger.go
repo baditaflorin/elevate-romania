@@ -2,18 +2,30 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"time"
 )
 
 // SimpleLogger implements a simple structured logger
 type SimpleLogger struct {
 	prefix string
+	output io.Writer
 }
 
-// NewLogger creates a new logger instance
+// NewLogger creates a new logger instance that writes to stdout
 func NewLogger(prefix string) *SimpleLogger {
 	return &SimpleLogger{
 		prefix: prefix,
+		output: os.Stdout,
+	}
+}
+
+// NewLoggerWithOutput creates a new logger with a custom output destination
+func NewLoggerWithOutput(prefix string, output io.Writer) *SimpleLogger {
+	return &SimpleLogger{
+		prefix: prefix,
+		output: output,
 	}
 }
 
@@ -46,5 +58,5 @@ func (l *SimpleLogger) log(level, msg string, args ...interface{}) {
 	}
 	
 	message := fmt.Sprintf(msg, args...)
-	fmt.Printf("%s [%s] %s%s\n", timestamp, level, prefix, message)
+	fmt.Fprintf(l.output, "%s [%s] %s%s\n", timestamp, level, prefix, message)
 }
