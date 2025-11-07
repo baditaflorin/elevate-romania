@@ -148,7 +148,14 @@ func runExtract() error {
 	fmt.Println("STEP 1: EXTRACT - Querying Overpass API")
 	fmt.Println(string(repeat('=', 60)))
 
-	extractor := NewOverpassExtractor()
+	// Initialize configuration and factory
+	config := NewConfig()
+	config.LoadFromEnv()
+	logger := NewLogger("Extractor")
+	factory := NewAPIClientFactory(config, logger)
+
+	// Create extractor using factory
+	extractor := factory.CreateOverpassExtractor()
 	data, err := extractor.GetAllData()
 	if err != nil {
 		return err

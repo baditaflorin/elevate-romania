@@ -156,10 +156,14 @@ func runEnrich(maxItems int) error {
 		return fmt.Errorf("output/osm_data_filtered.json not found. Run --filter first: %v", err)
 	}
 
-	// Enrich with elevation using batch processing
-	// Rate limit of 1000ms (1 second) between batch requests
-	// Batch size of 100 (maximum supported by OpenTopoData API)
-	batchEnricher := NewBatchElevationEnricher("opentopo", 1000.0, 100)
+	// Initialize configuration and factory
+	config := NewConfig()
+	config.LoadFromEnv()
+	logger := NewLogger("Enricher")
+	factory := NewAPIClientFactory(config, logger)
+
+	// Create batch enricher using factory
+	batchEnricher := factory.CreateBatchElevationEnricher("opentopo")
 
 	enriched := &EnrichedData{
 		TrainStations:       []OSMElement{},
