@@ -7,10 +7,12 @@ import (
 	"time"
 )
 
+// ElevationEnricher handles single elevation requests
 type ElevationEnricher struct {
-	APIType   string
-	RateLimit time.Duration
-	BaseURL   string
+	APIType        string
+	RateLimit      time.Duration
+	BaseURL        string
+	coordExtractor *CoordinateExtractor
 }
 
 type OpenTopoDataResponse struct {
@@ -28,8 +30,9 @@ type OpenElevationResponse struct {
 
 func NewElevationEnricher(apiType string, rateLimit float64) *ElevationEnricher {
 	e := &ElevationEnricher{
-		APIType:   apiType,
-		RateLimit: time.Duration(rateLimit * float64(time.Millisecond)),
+		APIType:        apiType,
+		RateLimit:      time.Duration(rateLimit * float64(time.Millisecond)),
+		coordExtractor: NewCoordinateExtractor(),
 	}
 	// Note: Using direct API endpoint instead of proxy for better reliability
 	// The proxy URL (go.proxy.okssh.com) was causing DNS resolution issues
@@ -81,24 +84,14 @@ func (e *ElevationEnricher) GetElevation(lat, lon float64) (*float64, error) {
 }
 
 func (e *ElevationEnricher) EnrichElement(element OSMElement) (*OSMElement, error) {
-	// Get coordinates
-	var lat, lon float64
-	var valid bool
-
-	if element.Type == "node" {
-		lat, lon = element.Lat, element.Lon
-		valid = lat != 0 && lon != 0
-	} else if element.Type == "way" && element.Center != nil {
-		lat, lon = element.Center.Lat, element.Center.Lon
-		valid = lat != 0 && lon != 0
-	}
-
+	// Get coordinates using the coordinate extractor
+	coords, valid := e.coordExtractor.Extract(element)
 	if !valid {
 		return nil, fmt.Errorf("no valid coordinates")
 	}
 
 	// Get elevation
-	elevation, err := e.GetElevation(lat, lon)
+	elevation, err := e.GetElevation(coords.Lat, coords.Lon)
 	if err != nil {
 		return nil, err
 	}

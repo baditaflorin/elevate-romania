@@ -11,11 +11,12 @@ import (
 
 // BatchElevationEnricher handles batch elevation requests
 type BatchElevationEnricher struct {
-	APIType    string
-	RateLimit  time.Duration
-	BaseURL    string
-	BatchSize  int
-	httpClient *http.Client
+	APIType        string
+	RateLimit      time.Duration
+	BaseURL        string
+	BatchSize      int
+	httpClient     *http.Client
+	coordExtractor *CoordinateExtractor
 }
 
 // LocationRequest represents a location to fetch elevation for
@@ -51,9 +52,10 @@ func NewBatchElevationEnricher(apiType string, rateLimit float64, batchSize int)
 	}
 
 	e := &BatchElevationEnricher{
-		APIType:   apiType,
-		RateLimit: time.Duration(rateLimit * float64(time.Millisecond)),
-		BatchSize: batchSize,
+		APIType:        apiType,
+		RateLimit:      time.Duration(rateLimit * float64(time.Millisecond)),
+		BatchSize:      batchSize,
+		coordExtractor: NewCoordinateExtractor(),
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -143,26 +145,16 @@ func (e *BatchElevationEnricher) EnrichElementsBatch(elements []OSMElement, maxC
 
 		element := elements[i]
 
-		// Get coordinates
-		var lat, lon float64
-		var valid bool
-
-		if element.Type == "node" {
-			lat, lon = element.Lat, element.Lon
-			valid = lat != 0 && lon != 0
-		} else if element.Type == "way" && element.Center != nil {
-			lat, lon = element.Center.Lat, element.Center.Lon
-			valid = lat != 0 && lon != 0
-		}
-
+		// Get coordinates using the coordinate extractor
+		coords, valid := e.coordExtractor.Extract(element)
 		if !valid {
 			fmt.Printf("Warning: element %d has no valid coordinates\n", element.ID)
 			continue
 		}
 
 		locationsToFetch = append(locationsToFetch, LocationRequest{
-			Lat:     lat,
-			Lon:     lon,
+			Lat:     coords.Lat,
+			Lon:     coords.Lon,
 			Element: &elements[i],
 		})
 	}
