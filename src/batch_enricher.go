@@ -134,10 +134,12 @@ func (e *BatchElevationEnricher) EnrichElementsBatch(elements []OSMElement, maxC
 	var locationsToFetch []LocationRequest
 
 	// Prepare locations for batch processing
-	for i, element := range elements {
+	for i := range elements {
 		if maxCount > 0 && i >= maxCount {
 			break
 		}
+
+		element := elements[i] // Make a copy to avoid pointer issues
 
 		// Get coordinates
 		var lat, lon float64
@@ -156,10 +158,12 @@ func (e *BatchElevationEnricher) EnrichElementsBatch(elements []OSMElement, maxC
 			continue
 		}
 
+		// Store a copy of the element
+		elementCopy := element
 		locationsToFetch = append(locationsToFetch, LocationRequest{
 			Lat:     lat,
 			Lon:     lon,
-			Element: &elements[i],
+			Element: &elementCopy,
 			Index:   i,
 		})
 	}
@@ -193,15 +197,16 @@ func (e *BatchElevationEnricher) EnrichElementsBatch(elements []OSMElement, maxC
 			}
 
 			if result.Elevation != nil {
-				// Add elevation to element
-				if result.Element.Tags == nil {
-					result.Element.Tags = make(map[string]string)
+				// Create a new element with elevation data
+				enrichedElement := *result.Element
+				if enrichedElement.Tags == nil {
+					enrichedElement.Tags = make(map[string]string)
 				}
-				result.Element.Tags["ele"] = fmt.Sprintf("%.1f", *result.Elevation)
-				result.Element.Tags["ele:source"] = "SRTM"
-				result.Element.ElevationFetched = result.Elevation
+				enrichedElement.Tags["ele"] = fmt.Sprintf("%.1f", *result.Elevation)
+				enrichedElement.Tags["ele:source"] = "SRTM"
+				enrichedElement.ElevationFetched = result.Elevation
 
-				enriched = append(enriched, *result.Element)
+				enriched = append(enriched, enrichedElement)
 			}
 		}
 
