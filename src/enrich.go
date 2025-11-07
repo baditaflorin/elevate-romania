@@ -31,6 +31,8 @@ func NewElevationEnricher(apiType string, rateLimit float64) *ElevationEnricher 
 		APIType:   apiType,
 		RateLimit: time.Duration(rateLimit * float64(time.Millisecond)),
 	}
+	// Note: Using direct API endpoint instead of proxy for better reliability
+	// The proxy URL (go.proxy.okssh.com) was causing DNS resolution issues
 	if apiType == "opentopo" {
 		e.BaseURL = "https://api.opentopodata.org/v1/srtm30m"
 	} else {

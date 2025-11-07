@@ -59,6 +59,8 @@ func NewBatchElevationEnricher(apiType string, rateLimit float64, batchSize int)
 		},
 	}
 
+	// Note: Using direct API endpoint instead of proxy for better reliability
+	// The proxy URL (go.proxy.okssh.com) was causing DNS resolution issues
 	if apiType == "opentopo" {
 		e.BaseURL = "https://api.opentopodata.org/v1/srtm30m"
 	} else {
@@ -139,7 +141,7 @@ func (e *BatchElevationEnricher) EnrichElementsBatch(elements []OSMElement, maxC
 			break
 		}
 
-		element := elements[i] // Make a copy to avoid pointer issues
+		element := elements[i]
 
 		// Get coordinates
 		var lat, lon float64
@@ -158,12 +160,10 @@ func (e *BatchElevationEnricher) EnrichElementsBatch(elements []OSMElement, maxC
 			continue
 		}
 
-		// Store a copy of the element
-		elementCopy := element
 		locationsToFetch = append(locationsToFetch, LocationRequest{
 			Lat:     lat,
 			Lon:     lon,
-			Element: &elementCopy,
+			Element: &element,
 			Index:   i,
 		})
 	}

@@ -128,7 +128,7 @@ All files are saved in the `output/` directory:
 - `main.go` - CLI and orchestration
 - `extract.go` - Query Overpass API for OSM data
 - `filter.go` - Filter elements without elevation
-- `enrich.go` - Fetch elevation from OpenTopoData (legacy single-request mode)
+- `enrich.go` - Elevation enrichment orchestration using batch processing
 - `batch_enricher.go` - Batch elevation fetching (up to 100 locations per request)
 - `validate.go` - Validate elevation ranges
 - `csv_export.go` - Export to CSV format
