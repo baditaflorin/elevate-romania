@@ -4,52 +4,34 @@ import (
 	"fmt"
 )
 
-type ElevationFilter struct{}
+// ElevationFilter filters OSM elements based on elevation and coordinates
+type ElevationFilter struct {
+	coordExtractor  *CoordinateExtractor
+	categorizer     *ElementCategorizer
+}
 
+// FilteredData contains categorized OSM elements
 type FilteredData struct {
 	TrainStations       []OSMElement `json:"train_stations"`
 	AlpineHuts          []OSMElement `json:"alpine_huts"`
 	OtherAccommodations []OSMElement `json:"other_accommodations"`
 }
 
+// NewElevationFilter creates a new elevation filter
 func NewElevationFilter() *ElevationFilter {
-	return &ElevationFilter{}
-}
-
-func (f *ElevationFilter) hasElevation(element OSMElement) bool {
-	if element.Tags == nil {
-		return false
+	return &ElevationFilter{
+		coordExtractor:  NewCoordinateExtractor(),
+		categorizer:     NewElementCategorizer(),
 	}
-	_, exists := element.Tags["ele"]
-	return exists
 }
 
-func (f *ElevationFilter) isAlpineHut(element OSMElement) bool {
-	if element.Tags == nil {
-		return false
-	}
-	return element.Tags["tourism"] == "alpine_hut"
-}
-
-func (f *ElevationFilter) getCoordinates(element OSMElement) (float64, float64, bool) {
-	if element.Type == "node" {
-		if element.Lat != 0 && element.Lon != 0 {
-			return element.Lat, element.Lon, true
-		}
-	} else if element.Type == "way" && element.Center != nil {
-		if element.Center.Lat != 0 && element.Center.Lon != 0 {
-			return element.Center.Lat, element.Center.Lon, true
-		}
-	}
-	return 0, 0, false
-}
-
+// filterMissingElevation filters elements without elevation data
 func (f *ElevationFilter) filterMissingElevation(elements []OSMElement) []OSMElement {
 	var result []OSMElement
 
 	for _, element := range elements {
-		if !f.hasElevation(element) {
-			if _, _, valid := f.getCoordinates(element); valid {
+		if !f.categorizer.HasElevation(element) {
+			if f.coordExtractor.HasValidCoordinates(element) {
 				result = append(result, element)
 			}
 		}
@@ -58,12 +40,13 @@ func (f *ElevationFilter) filterMissingElevation(elements []OSMElement) []OSMEle
 	return result
 }
 
+// prioritizeAlpineHuts separates alpine huts from other elements
 func (f *ElevationFilter) prioritizeAlpineHuts(elements []OSMElement) ([]OSMElement, []OSMElement) {
 	var alpineHuts []OSMElement
 	var others []OSMElement
 
 	for _, element := range elements {
-		if f.isAlpineHut(element) {
+		if f.categorizer.IsAlpineHut(element) {
 			alpineHuts = append(alpineHuts, element)
 		} else {
 			others = append(others, element)
@@ -73,6 +56,7 @@ func (f *ElevationFilter) prioritizeAlpineHuts(elements []OSMElement) ([]OSMElem
 	return alpineHuts, others
 }
 
+// FilterData filters OSM data by elevation status and categorizes elements
 func (f *ElevationFilter) FilterData(data *OSMData) *FilteredData {
 	result := &FilteredData{
 		TrainStations:       []OSMElement{},
