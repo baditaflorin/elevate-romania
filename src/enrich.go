@@ -31,8 +31,10 @@ func NewElevationEnricher(apiType string, rateLimit float64) *ElevationEnricher 
 		APIType:   apiType,
 		RateLimit: time.Duration(rateLimit * float64(time.Millisecond)),
 	}
+	// Note: Using direct API endpoint instead of proxy for better reliability
+	// The proxy URL (go.proxy.okssh.com) was causing DNS resolution issues
 	if apiType == "opentopo" {
-		e.BaseURL = "https://go.proxy.okssh.com/?url=https://api.opentopodata.org/v1/srtm30m"
+		e.BaseURL = "https://api.opentopodata.org/v1/srtm30m"
 	} else {
 		e.BaseURL = "https://api.open-elevation.com/api/v1/lookup"
 	}
@@ -152,7 +154,7 @@ type EnrichedData struct {
 
 func runEnrich(maxItems int) error {
 	fmt.Println("\n" + string(repeat('=', 60)))
-	fmt.Println("STEP 3: ENRICH - Fetching elevation from OpenTopoData")
+	fmt.Println("STEP 3: ENRICH - Fetching elevation from OpenTopoData (Batch Mode)")
 	fmt.Println(string(repeat('=', 60)))
 
 	// Load filtered data
@@ -161,8 +163,10 @@ func runEnrich(maxItems int) error {
 		return fmt.Errorf("output/osm_data_filtered.json not found. Run --filter first: %v", err)
 	}
 
-	// Enrich with elevation
-	enricher := NewElevationEnricher("opentopo", 1.0)
+	// Enrich with elevation using batch processing
+	// Rate limit of 1000ms (1 second) between batch requests
+	// Batch size of 100 (maximum supported by OpenTopoData API)
+	batchEnricher := NewBatchElevationEnricher("opentopo", 1000.0, 100)
 
 	enriched := &EnrichedData{
 		TrainStations:       []OSMElement{},
@@ -172,20 +176,20 @@ func runEnrich(maxItems int) error {
 
 	// Process alpine huts first (priority)
 	if len(data.AlpineHuts) > 0 {
-		fmt.Println("\n[PRIORITY] Enriching alpine huts...")
-		enriched.AlpineHuts = enricher.EnrichElements(data.AlpineHuts, maxItems)
+		fmt.Println("\n[PRIORITY] Enriching alpine huts using batch API...")
+		enriched.AlpineHuts = batchEnricher.EnrichElementsBatch(data.AlpineHuts, maxItems)
 	}
 
 	// Process train stations
 	if len(data.TrainStations) > 0 {
-		fmt.Println("\nEnriching train stations...")
-		enriched.TrainStations = enricher.EnrichElements(data.TrainStations, maxItems)
+		fmt.Println("\nEnriching train stations using batch API...")
+		enriched.TrainStations = batchEnricher.EnrichElementsBatch(data.TrainStations, maxItems)
 	}
 
 	// Process other accommodations
 	if len(data.OtherAccommodations) > 0 {
-		fmt.Println("\nEnriching other accommodations...")
-		enriched.OtherAccommodations = enricher.EnrichElements(data.OtherAccommodations, maxItems)
+		fmt.Println("\nEnriching other accommodations using batch API...")
+		enriched.OtherAccommodations = batchEnricher.EnrichElementsBatch(data.OtherAccommodations, maxItems)
 	}
 
 	// Save enriched data
