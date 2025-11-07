@@ -163,7 +163,7 @@ func (e *BatchElevationEnricher) EnrichElementsBatch(elements []OSMElement, maxC
 		locationsToFetch = append(locationsToFetch, LocationRequest{
 			Lat:     lat,
 			Lon:     lon,
-			Element: &element,
+			Element: &elements[i],
 			Index:   i,
 		})
 	}
