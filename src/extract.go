@@ -73,11 +73,11 @@ func (e *OverpassExtractor) queryOverpass(query string) ([]OSMElement, error) {
 
 func (e *OverpassExtractor) GetTrainStations() ([]OSMElement, error) {
 	query := `
-[out:json][timeout:300];
-area["name"="Hunedoara"]["admin_level"="4"]->.romania;
+[out:json][timeout:180];
+area["name"="România"]["admin_level"="2"]->.hunedoara;
 (
-  node["railway"="station"](area.romania);
-  node["railway"="halt"](area.romania);
+  node["railway"="station"]["ele"!~".*"](area.hunedoara);
+  node["railway"="halt"]["ele"!~".*"](area.hunedoara);
 );
 out body;
 `
@@ -95,20 +95,20 @@ out body;
 func (e *OverpassExtractor) GetAccommodations() ([]OSMElement, error) {
 	query := `
 [out:json][timeout:300];
-area["name"="Hunedoara"]["admin_level"="4"]->.romania;
+area["name"="România"]["admin_level"="2"]->.romania;
 (
-  node["tourism"="hotel"](area.romania);
-  node["tourism"="guest_house"](area.romania);
-  node["tourism"="alpine_hut"](area.romania);
-  node["tourism"="chalet"](area.romania);
-  node["tourism"="hostel"](area.romania);
-  node["tourism"="motel"](area.romania);
-  way["tourism"="hotel"](area.romania);
-  way["tourism"="guest_house"](area.romania);
-  way["tourism"="alpine_hut"](area.romania);
-  way["tourism"="chalet"](area.romania);
-  way["tourism"="hostel"](area.romania);
-  way["tourism"="motel"](area.romania);
+  node["tourism"="hotel"]["ele"!~".*"](area.romania);
+  node["tourism"="guest_house"]["ele"!~".*"](area.romania);
+  node["tourism"="alpine_hut"]["ele"!~".*"](area.romania);
+  node["tourism"="chalet"]["ele"!~".*"](area.romania);
+  node["tourism"="hostel"]["ele"!~".*"](area.romania);
+  node["tourism"="motel"]["ele"!~".*"](area.romania);
+  way["tourism"="hotel"]["ele"!~".*"](area.romania);
+  way["tourism"="guest_house"]["ele"!~".*"](area.romania);
+  way["tourism"="alpine_hut"]["ele"!~".*"](area.romania);
+  way["tourism"="chalet"]["ele"!~".*"](area.romania);
+  way["tourism"="hostel"]["ele"!~".*"](area.romania);
+  way["tourism"="motel"]["ele"!~".*"](area.romania);
 );
 out center;
 `

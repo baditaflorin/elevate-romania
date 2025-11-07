@@ -162,7 +162,7 @@ func runEnrich(maxItems int) error {
 	}
 
 	// Enrich with elevation
-	enricher := NewElevationEnricher("opentopo", 0.1)
+	enricher := NewElevationEnricher("opentopo", 1.0)
 
 	enriched := &EnrichedData{
 		TrainStations:       []OSMElement{},
