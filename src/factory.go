@@ -92,8 +92,14 @@ func (f *APIClientFactory) CreateOverpassExtractor() *OverpassExtractor {
 		url = "https://overpass-api.de/api/interpreter"
 	}
 	
+	country := f.config.Get("COUNTRY")
+	if country == "" {
+		country = "România"
+	}
+	
 	return &OverpassExtractor{
 		OverpassURL: url,
+		Country:     country,
 	}
 }
 

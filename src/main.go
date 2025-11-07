@@ -25,8 +25,18 @@ func main() {
 	dryRun := flag.Bool("dry-run", false, "Dry-run mode (don't upload)")
 	limit := flag.Int("limit", 0, "Limit number of items to process (for testing)")
 	oauthInteractive := flag.Bool("oauth-interactive", false, "Interactive OAuth setup")
+	country := flag.String("country", "România", "Country name to target (int_name from OSM)")
+	listCountries := flag.Bool("list-countries", false, "List all available admin_level=2 countries")
 
 	flag.Parse()
+
+	// Handle list-countries flag
+	if *listCountries {
+		if err := runListCountries(); err != nil {
+			log.Fatalf("List countries failed: %v", err)
+		}
+		return
+	}
 
 	// Check if any action is specified
 	if !(*extract || *filter || *enrich || *validate || *exportCSV || *upload || *all) {
@@ -37,12 +47,14 @@ func main() {
 		fmt.Println("  elevate-romania --enrich --limit 10")
 		fmt.Println("  elevate-romania --upload --dry-run")
 		fmt.Println("  elevate-romania --upload --oauth-interactive")
+		fmt.Println("  elevate-romania --country \"Moldova\" --extract")
+		fmt.Println("  elevate-romania --list-countries")
 		return
 	}
 
 	fmt.Println("=" + string(repeat('=', 60)))
-	fmt.Println("ELEVAȚIE OSM ROMÂNIA")
-	fmt.Println("Adding elevation to train stations and accommodations")
+	fmt.Println("ELEVAȚIE OSM")
+	fmt.Printf("Adding elevation to train stations and accommodations in %s\n", *country)
 	fmt.Printf("Started: %s\n", time.Now().Format("2006-01-02 15:04:05"))
 	fmt.Println("=" + string(repeat('=', 60)))
 
@@ -53,7 +65,7 @@ func main() {
 
 	// Run steps
 	if *all || *extract {
-		if err := runExtract(); err != nil {
+		if err := runExtract(*country); err != nil {
 			log.Fatalf("Extract failed: %v", err)
 		}
 	}
@@ -106,7 +118,7 @@ func main() {
 			isDryRun = true
 		}
 
-		if err := runUpload(isDryRun, oauthConfig); err != nil {
+		if err := runUpload(isDryRun, oauthConfig, *country); err != nil {
 			log.Fatalf("Upload failed: %v", err)
 		}
 	}

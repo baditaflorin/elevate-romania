@@ -12,6 +12,7 @@ type OSMUploader struct {
 	changesetManager *ChangesetManager
 	apiClient        *OSMAPIClient
 	dryRun           bool
+	country          string
 }
 
 // UploadStats contains statistics about uploads
@@ -30,9 +31,10 @@ type UploadError struct {
 }
 
 // NewOSMUploader creates a new OSM uploader
-func NewOSMUploader(oauthConfig *OAuthConfig, dryRun bool) (*OSMUploader, error) {
+func NewOSMUploader(oauthConfig *OAuthConfig, dryRun bool, country string) (*OSMUploader, error) {
 	uploader := &OSMUploader{
-		dryRun: dryRun,
+		dryRun:  dryRun,
+		country: country,
 	}
 
 	if dryRun {
@@ -212,7 +214,7 @@ func (u *OSMUploader) UploadAll(data ValidatedData) (map[string]UploadStats, err
 	}
 
 	// Create changeset
-	changesetComment := fmt.Sprintf("Add elevation data to %d locations in Romania (alpine huts, train stations, accommodations)", totalElements)
+	changesetComment := fmt.Sprintf("Add elevation data to %d locations in %s (alpine huts, train stations, accommodations)", totalElements, u.country)
 	if err := u.CreateChangeset(changesetComment); err != nil {
 		return allStats, fmt.Errorf("failed to create changeset: %v", err)
 	}
@@ -231,7 +233,7 @@ func (u *OSMUploader) UploadAll(data ValidatedData) (map[string]UploadStats, err
 }
 
 // runUpload runs the upload process
-func runUpload(dryRun bool, oauthConfig *OAuthConfig) error {
+func runUpload(dryRun bool, oauthConfig *OAuthConfig, country string) error {
 	fmt.Println("\n" + string(repeat('=', 60)))
 	if dryRun {
 		fmt.Println("STEP 6: UPLOAD (DRY-RUN) - Preview changes")
@@ -247,7 +249,7 @@ func runUpload(dryRun bool, oauthConfig *OAuthConfig) error {
 	}
 
 	// Upload
-	uploader, err := NewOSMUploader(oauthConfig, dryRun)
+	uploader, err := NewOSMUploader(oauthConfig, dryRun, country)
 	if err != nil {
 		return err
 	}
