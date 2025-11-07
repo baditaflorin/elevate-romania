@@ -128,10 +128,14 @@ All files are saved in the `output/` directory:
 - `main.go` - CLI and orchestration
 - `extract.go` - Query Overpass API for OSM data
 - `filter.go` - Filter elements without elevation
-- `enrich.go` - Fetch elevation from OpenTopoData
+- `enrich.go` - Fetch elevation from OpenTopoData (legacy single-request mode)
+- `batch_enricher.go` - Batch elevation fetching (up to 100 locations per request)
 - `validate.go` - Validate elevation ranges
 - `csv_export.go` - Export to CSV format
 - `upload.go` - Upload to OSM with OAuth 2.0
+- `oauth.go` - OAuth credential management
+- `changeset.go` - OSM changeset operations
+- `osm_api.go` - OSM API client
 - `utils.go` - JSON I/O utilities
 
 ### Data Flow
@@ -147,8 +151,27 @@ Extract → Filter → Enrich → Validate → Export CSV
 ## API Rate Limits
 
 - **Overpass API**: Respect the fair use policy, add delays between requests
-- **OpenTopoData**: 1 request per second (configurable in code)
+- **OpenTopoData**: Batch processing enabled - up to 100 locations per request, 1 second delay between batches
 - **OSM API**: 1 request per second for uploads
+
+## Batch Processing
+
+The elevation enrichment now uses **batch processing** to dramatically improve performance:
+
+- **Old approach**: 1 API call per location (e.g., 1000 locations = 1000 API calls)
+- **New approach**: Up to 100 locations per API call (e.g., 1000 locations = 10 API calls)
+
+This reduces API calls by up to **100x**, making the enrichment process much faster while still respecting API rate limits.
+
+**Example batch request format:**
+```
+https://api.opentopodata.org/v1/srtm30m?locations=46.947464,22.700911|45.5,25.5|44.5,26.1
+```
+
+**Implementation:**
+- Batch size: 100 locations per request (maximum supported by OpenTopoData API)
+- Rate limit: 1 second between batches
+- Automatic batching in `batch_enricher.go`
 
 ## Safety Features
 
