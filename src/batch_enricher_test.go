@@ -109,7 +109,6 @@ func TestLocationRequestBuilding(t *testing.T) {
 				Lat:     lat,
 				Lon:     lon,
 				Element: &elements[i],
-				Index:   i,
 			})
 		}
 	}

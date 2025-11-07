@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -22,7 +23,6 @@ type LocationRequest struct {
 	Lat     float64
 	Lon     float64
 	Element *OSMElement
-	Index   int
 }
 
 // BatchElevationResult represents the result of a batch elevation request
@@ -87,9 +87,9 @@ func (e *BatchElevationEnricher) BatchGetElevations(locations []LocationRequest)
 	}
 	locationsParam := strings.Join(locationParts, "|")
 
-	// Make the API request
-	url := fmt.Sprintf("%s?locations=%s", e.BaseURL, locationsParam)
-	resp, err := e.httpClient.Get(url)
+	// Make the API request with properly encoded query parameter
+	requestURL := fmt.Sprintf("%s?locations=%s", e.BaseURL, url.QueryEscape(locationsParam))
+	resp, err := e.httpClient.Get(requestURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch batch elevations: %v", err)
 	}
@@ -163,8 +163,7 @@ func (e *BatchElevationEnricher) EnrichElementsBatch(elements []OSMElement, maxC
 		locationsToFetch = append(locationsToFetch, LocationRequest{
 			Lat:     lat,
 			Lon:     lon,
-			Element: &elements[i],
-			Index:   i,
+			Element: &element,
 		})
 	}
 
