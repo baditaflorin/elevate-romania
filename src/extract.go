@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
+	"strings"
 	"time"
 )
 
@@ -45,6 +47,11 @@ func NewOverpassExtractor(country string) *OverpassExtractor {
 	}
 }
 
+// escapeCountryName escapes double quotes in country name to prevent query injection
+func escapeCountryName(country string) string {
+	return strings.ReplaceAll(country, `"`, `\"`)
+}
+
 func (e *OverpassExtractor) queryOverpass(query string) ([]OSMElement, error) {
 	client := &http.Client{
 		Timeout: 5 * time.Minute,
@@ -74,6 +81,7 @@ func (e *OverpassExtractor) queryOverpass(query string) ([]OSMElement, error) {
 }
 
 func (e *OverpassExtractor) GetTrainStations() ([]OSMElement, error) {
+	escapedCountry := escapeCountryName(e.Country)
 	query := fmt.Sprintf(`
 [out:json][timeout:180];
 area["name"="%s"]["admin_level"="2"]->.country;
@@ -82,7 +90,7 @@ area["name"="%s"]["admin_level"="2"]->.country;
   node["railway"="halt"]["ele"!~".*"](area.country);
 );
 out body;
-`, e.Country)
+`, escapedCountry)
 
 	fmt.Printf("Querying train stations in %s...\n", e.Country)
 	elements, err := e.queryOverpass(query)
@@ -95,6 +103,7 @@ out body;
 }
 
 func (e *OverpassExtractor) GetAccommodations() ([]OSMElement, error) {
+	escapedCountry := escapeCountryName(e.Country)
 	query := fmt.Sprintf(`
 [out:json][timeout:300];
 area["name"="%s"]["admin_level"="2"]->.country;
@@ -113,7 +122,7 @@ area["name"="%s"]["admin_level"="2"]->.country;
   way["tourism"="motel"]["ele"!~".*"](area.country);
 );
 out center;
-`, e.Country)
+`, escapedCountry)
 
 	fmt.Printf("Querying accommodations in %s...\n", e.Country)
 	elements, err := e.queryOverpass(query)
@@ -243,11 +252,16 @@ out tags;
 		}
 	}
 
-	// Sort countries by name
+	// Collect and sort countries by name
 	var countries []CountryInfo
 	for _, country := range countriesMap {
 		countries = append(countries, country)
 	}
+	
+	// Sort countries alphabetically by name
+	sort.Slice(countries, func(i, j int) bool {
+		return countries[i].Name < countries[j].Name
+	})
 
 	fmt.Printf("\nFound %d countries:\n\n", len(countries))
 	

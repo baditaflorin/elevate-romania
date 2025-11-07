@@ -5,6 +5,44 @@ import (
 	"testing"
 )
 
+func TestEscapeCountryName(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "No quotes",
+			input:    "România",
+			expected: "România",
+		},
+		{
+			name:     "With quotes",
+			input:    `Country"Name"Test`,
+			expected: `Country\"Name\"Test`,
+		},
+		{
+			name:     "Multiple quotes",
+			input:    `"Test""Country"`,
+			expected: `\"Test\"\"Country\"`,
+		},
+		{
+			name:     "Empty string",
+			input:    "",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := escapeCountryName(tt.input)
+			if result != tt.expected {
+				t.Errorf("Expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
 func TestOverpassExtractorCountryParameter(t *testing.T) {
 	tests := []struct {
 		name            string

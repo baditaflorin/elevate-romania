@@ -1,10 +1,12 @@
-# Elevație OSM România - Go Implementation
+# Elevație OSM - Go Implementation
 
-Add elevation data to train stations and accommodations in Romania on OpenStreetMap.
+Add elevation data to train stations and accommodations in any country on OpenStreetMap.
 
 ## Features
 
-- Extract OSM data for train stations and accommodations in Romania
+- Extract OSM data for train stations and accommodations from any country
+- Configurable country selection via CLI (default: Romania)
+- List all available admin_level=2 countries
 - Filter elements missing elevation data
 - Enrich with elevation from OpenTopoData (SRTM dataset)
 - Validate elevation ranges (0-2600m for Romania)
@@ -61,8 +63,14 @@ Alternatively, use the interactive OAuth flow with `--oauth-interactive`, which 
 # Show help
 ./elevate-romania --help
 
-# Run complete pipeline in dry-run mode
+# List all available countries
+./elevate-romania --list-countries
+
+# Run complete pipeline in dry-run mode (default: România)
 ./elevate-romania --all --dry-run
+
+# Run for a different country
+./elevate-romania --country "Moldova" --all --dry-run
 
 # Run individual steps
 ./elevate-romania --extract                  # Step 1: Extract from OSM
@@ -74,13 +82,34 @@ Alternatively, use the interactive OAuth flow with `--oauth-interactive`, which 
 
 # Run with OAuth interactive setup
 ./elevate-romania --upload --oauth-interactive
+
+# Target a specific country
+./elevate-romania --country "France" --extract
+./elevate-romania --country "Moldova" --all --dry-run
+```
+
+### Country Selection
+
+You can target any admin_level=2 country from OpenStreetMap:
+
+```bash
+# List all available countries
+./elevate-romania --list-countries
+
+# Use the exact country name (case-sensitive) from the list
+./elevate-romania --country "Moldova" --extract
+./elevate-romania --country "France" --extract
+./elevate-romania --country "România" --extract  # default
 ```
 
 ### Complete Workflow
 
 ```bash
-# 1. Extract data from OSM
+# 1. Extract data from OSM (default: România)
 ./elevate-romania --extract
+
+# Or for a different country
+./elevate-romania --country "Moldova" --extract
 
 # 2. Filter elements without elevation
 ./elevate-romania --filter
@@ -104,8 +133,11 @@ Alternatively, use the interactive OAuth flow with `--oauth-interactive`, which 
 ### Run Everything at Once
 
 ```bash
-# Test the complete workflow with 10 items
+# Test the complete workflow with 10 items (default: România)
 ./elevate-romania --all --dry-run --limit 10
+
+# For a different country
+./elevate-romania --country "Moldova" --all --dry-run --limit 10
 
 # Production run (uploads to OSM)
 ./elevate-romania --all --oauth-interactive
@@ -120,6 +152,37 @@ All files are saved in the `output/` directory:
 - `osm_data_enriched.json` - Elements with fetched elevation
 - `osm_data_validated.json` - Validated elements (0-2600m)
 - `elevation_data.csv` - CSV export for analysis
+
+## Working with Different Countries
+
+### List Available Countries
+
+To see all available admin_level=2 countries from OpenStreetMap:
+
+```bash
+./elevate-romania --list-countries
+```
+
+This will query the Overpass API and display a list of all countries. Use the exact name (case-sensitive) when specifying the `--country` flag.
+
+### Country Name Format
+
+The tool uses the `name` tag from OpenStreetMap's admin_level=2 areas. Some examples:
+- `România` (default)
+- `Moldova`
+- `France`
+- `Deutschland` (for Germany)
+- `España` (for Spain)
+
+**Note:** Always use the local language name as it appears in OpenStreetMap, not the English translation.
+
+### Changeset Message
+
+When uploading changes, the changeset message will automatically include the country name you specified:
+
+```
+Add elevation data to X locations in [Country Name] (alpine huts, train stations, accommodations)
+```
 
 ## Architecture
 
