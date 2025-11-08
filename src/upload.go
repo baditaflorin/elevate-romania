@@ -6,6 +6,13 @@ import (
 	"time"
 )
 
+const (
+	// MaxBoundingBoxDiagonal is the maximum diagonal distance (in degrees) for a changeset
+	// OSM typically allows up to 0.5 degrees, but we use 0.25 to be conservative
+	// 0.25 degrees is approximately 28km at the equator
+	MaxBoundingBoxDiagonal = 0.25
+)
+
 // OSMUploader handles uploading changes to OpenStreetMap
 type OSMUploader struct {
 	client           *http.Client
@@ -204,32 +211,142 @@ func (u *OSMUploader) UploadElements(elements []OSMElement, categoryName string)
 func (u *OSMUploader) UploadAll(data ValidatedData) (map[string]UploadStats, error) {
 	allStats := make(map[string]UploadStats)
 
-	// Calculate total elements
-	totalElements := len(data.TrainStations.ValidElements) +
-		len(data.AlpineHuts.ValidElements) +
-		len(data.OtherAccommodations.ValidElements)
+	// Collect all elements
+	allElements := make([]OSMElement, 0)
+	allElements = append(allElements, data.AlpineHuts.ValidElements...)
+	allElements = append(allElements, data.TrainStations.ValidElements...)
+	allElements = append(allElements, data.OtherAccommodations.ValidElements...)
 
+	totalElements := len(allElements)
 	if totalElements == 0 {
 		return allStats, fmt.Errorf("no elements to upload")
 	}
 
-	// Create changeset
-	changesetComment := fmt.Sprintf("Add elevation data to %d locations in %s (alpine huts, train stations, accommodations)", totalElements, u.country)
-	if err := u.CreateChangeset(changesetComment); err != nil {
-		return allStats, fmt.Errorf("failed to create changeset: %v", err)
+	fmt.Printf("\nGrouping %d elements by geographic proximity...\n", totalElements)
+	
+	// Cluster elements by geographic proximity to avoid bounding box size limits
+	clusters := ClusterElements(allElements, MaxBoundingBoxDiagonal)
+	
+	fmt.Printf("Created %d geographic clusters to avoid bounding box size limits\n", len(clusters))
+	fmt.Printf("Each changeset will cover a maximum area of %.2f degrees diagonal\n\n", MaxBoundingBoxDiagonal)
+
+	// Track stats across all clusters
+	categoryStats := map[string]*UploadStats{
+		"alpine_huts":          {Total: 0, Successful: 0, Failed: 0, Errors: []UploadError{}},
+		"train_stations":       {Total: 0, Successful: 0, Failed: 0, Errors: []UploadError{}},
+		"other_accommodations": {Total: 0, Successful: 0, Failed: 0, Errors: []UploadError{}},
 	}
 
-	// Upload by category
-	allStats["alpine_huts"] = u.UploadElements(data.AlpineHuts.ValidElements, "alpine_huts")
-	allStats["train_stations"] = u.UploadElements(data.TrainStations.ValidElements, "train_stations")
-	allStats["other_accommodations"] = u.UploadElements(data.OtherAccommodations.ValidElements, "other_accommodations")
+	// Process each cluster with its own changeset
+	for clusterIdx, cluster := range clusters {
+		clusterNum := clusterIdx + 1
+		clusterSize := len(cluster.Elements)
+		
+		fmt.Printf("\n" + string(repeat('=', 60)) + "\n")
+		fmt.Printf("Processing cluster %d/%d (%d elements)\n", clusterNum, len(clusters), clusterSize)
+		fmt.Printf("Bounding box: [%.4f,%.4f] to [%.4f,%.4f] (diagonal: %.4f°)\n",
+			cluster.BBox.MinLat, cluster.BBox.MinLon,
+			cluster.BBox.MaxLat, cluster.BBox.MaxLon,
+			cluster.BBox.Diagonal())
+		fmt.Printf(string(repeat('=', 60)) + "\n")
 
-	// Close changeset
-	if err := u.CloseChangeset(); err != nil {
-		return allStats, fmt.Errorf("failed to close changeset: %v", err)
+		// Categorize elements in this cluster
+		alpineHuts := []OSMElement{}
+		trainStations := []OSMElement{}
+		otherAccommodations := []OSMElement{}
+
+		categorizer := NewElementCategorizer()
+		for _, element := range cluster.Elements {
+			category := categorizer.Categorize(element)
+			switch category {
+			case CategoryAlpineHut:
+				alpineHuts = append(alpineHuts, element)
+			case CategoryTrainStation:
+				trainStations = append(trainStations, element)
+			case CategoryOtherAccommodation:
+				otherAccommodations = append(otherAccommodations, element)
+			}
+		}
+
+		// Create changeset for this cluster
+		changesetComment := fmt.Sprintf("Add elevation data to %d locations in %s - cluster %d/%d (alpine huts, train stations, accommodations)",
+			clusterSize, u.country, clusterNum, len(clusters))
+		if err := u.CreateChangeset(changesetComment); err != nil {
+			fmt.Printf("WARNING: Failed to create changeset for cluster %d: %v\n", clusterNum, err)
+			// Mark all elements in this cluster as failed
+			for _, elem := range cluster.Elements {
+				category := categorizer.Categorize(elem)
+				categoryKey := categoryToKey(category)
+				if stats, ok := categoryStats[categoryKey]; ok {
+					stats.Total++
+					stats.Failed++
+					stats.Errors = append(stats.Errors, UploadError{
+						ElementType: elem.Type,
+						ElementID:   elem.ID,
+						Error:       fmt.Sprintf("Failed to create changeset: %v", err),
+					})
+				}
+			}
+			continue
+		}
+
+		// Upload elements in this cluster by category
+		if len(alpineHuts) > 0 {
+			stats := u.UploadElements(alpineHuts, fmt.Sprintf("alpine_huts (cluster %d)", clusterNum))
+			categoryStats["alpine_huts"].Total += stats.Total
+			categoryStats["alpine_huts"].Successful += stats.Successful
+			categoryStats["alpine_huts"].Failed += stats.Failed
+			categoryStats["alpine_huts"].Errors = append(categoryStats["alpine_huts"].Errors, stats.Errors...)
+		}
+
+		if len(trainStations) > 0 {
+			stats := u.UploadElements(trainStations, fmt.Sprintf("train_stations (cluster %d)", clusterNum))
+			categoryStats["train_stations"].Total += stats.Total
+			categoryStats["train_stations"].Successful += stats.Successful
+			categoryStats["train_stations"].Failed += stats.Failed
+			categoryStats["train_stations"].Errors = append(categoryStats["train_stations"].Errors, stats.Errors...)
+		}
+
+		if len(otherAccommodations) > 0 {
+			stats := u.UploadElements(otherAccommodations, fmt.Sprintf("other_accommodations (cluster %d)", clusterNum))
+			categoryStats["other_accommodations"].Total += stats.Total
+			categoryStats["other_accommodations"].Successful += stats.Successful
+			categoryStats["other_accommodations"].Failed += stats.Failed
+			categoryStats["other_accommodations"].Errors = append(categoryStats["other_accommodations"].Errors, stats.Errors...)
+		}
+
+		// Close changeset for this cluster
+		if err := u.CloseChangeset(); err != nil {
+			fmt.Printf("WARNING: Failed to close changeset for cluster %d: %v\n", clusterNum, err)
+		}
+
+		// Add delay between clusters to respect rate limits
+		if clusterNum < len(clusters) && !u.dryRun {
+			fmt.Printf("\nWaiting 2 seconds before next cluster...\n")
+			time.Sleep(2 * time.Second)
+		}
+	}
+
+	// Convert to final stats format
+	for category, stats := range categoryStats {
+		allStats[category] = *stats
 	}
 
 	return allStats, nil
+}
+
+// categoryToKey converts an ElementCategory to the string key used in stats maps
+func categoryToKey(category ElementCategory) string {
+	switch category {
+	case CategoryAlpineHut:
+		return "alpine_huts"
+	case CategoryTrainStation:
+		return "train_stations"
+	case CategoryOtherAccommodation:
+		return "other_accommodations"
+	default:
+		return "unknown"
+	}
 }
 
 // runUpload runs the upload process
