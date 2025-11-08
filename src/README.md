@@ -7,6 +7,7 @@ Add elevation data to train stations and accommodations in any country on OpenSt
 - Extract OSM data for train stations and accommodations from any country
 - Configurable country selection via CLI (default: Romania)
 - List all available admin_level=2 countries
+- **Global processing: Process all countries in the world sequentially**
 - Filter elements missing elevation data
 - Enrich with elevation from OpenTopoData (SRTM dataset)
 - Validate elevation ranges (0-2600m for Romania)
@@ -86,6 +87,9 @@ Alternatively, use the interactive OAuth flow with `--oauth-interactive`, which 
 # Target a specific country
 ./elevate-romania --country "France" --extract
 ./elevate-romania --country "Moldova" --all --dry-run
+
+# Process all countries sequentially (global processing)
+./elevate-romania --process-all-countries --limit 2000 --dry-run
 ```
 
 ### Country Selection
@@ -101,6 +105,31 @@ You can target any admin_level=2 country from OpenStreetMap:
 ./elevate-romania --country "France" --extract
 ./elevate-romania --country "România" --extract  # default
 ```
+
+### Global Processing (Process All Countries)
+
+Process elevation data for all countries in the world sequentially:
+
+```bash
+# Process all countries in dry-run mode with a limit per country
+./elevate-romania --process-all-countries --limit 2000 --dry-run
+
+# Process all countries with actual uploads (requires OAuth)
+./elevate-romania --process-all-countries --limit 2000 --oauth-interactive
+
+# Process all countries without limit (processes all locations found)
+./elevate-romania --process-all-countries --dry-run
+```
+
+**Features:**
+- Automatically fetches list of all admin_level=2 countries from OpenStreetMap
+- Processes each country with the complete pipeline (extract, filter, enrich, validate, export, upload)
+- Includes 5-second delay between countries to respect API rate limits
+- Continues processing even if one country fails
+- Provides summary statistics at the end
+- The `--limit` flag limits the number of locations processed per country
+
+**Note:** Global processing can take a very long time. Always test with `--dry-run` first and use `--limit` to control processing time.
 
 ### Complete Workflow
 
