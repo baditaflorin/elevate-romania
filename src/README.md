@@ -224,7 +224,9 @@ Add elevation data to X locations in [Country Name] (alpine huts, train stations
 - `batch_enricher.go` - Batch elevation fetching (up to 100 locations per request)
 - `validate.go` - Validate elevation ranges
 - `csv_export.go` - Export to CSV format
-- `upload.go` - Upload to OSM with OAuth 2.0
+- `upload.go` - Upload to OSM with OAuth 2.0, includes changeset clustering
+- `clustering.go` - Geographic clustering to split elements by proximity
+- `coordinates.go` - Geographic coordinate utilities (bounding box, distance, centroid)
 - `oauth.go` - OAuth credential management
 - `changeset.go` - OSM changeset operations
 - `osm_api.go` - OSM API client
@@ -237,7 +239,9 @@ OSM (Overpass API)
   ↓
 Extract → Filter → Enrich → Validate → Export CSV
                                       ↓
-                                    Upload to OSM
+                              Cluster by proximity
+                                      ↓
+                              Upload to OSM (multiple changesets)
 ```
 
 ## API Rate Limits
@@ -264,6 +268,31 @@ https://api.opentopodata.org/v1/srtm30m?locations=46.947464,22.700911|45.5,25.5|
 - Batch size: 100 locations per request (maximum supported by OpenTopoData API)
 - Rate limit: 1 second between batches
 - Automatic batching in `batch_enricher.go`
+
+## Changeset Clustering
+
+The upload process now uses **geographic clustering** to avoid OSM changeset bounding box size limits:
+
+- **Problem**: Large countries (e.g., Russia) can have elements spread too far apart, causing HTTP 413 (Payload too large) errors
+- **Solution**: Automatically splits elements into multiple changesets based on geographic proximity
+
+**How it works:**
+- Elements are grouped using a grid-based clustering algorithm with k-means fallback
+- Each cluster is limited to a maximum bounding box diagonal of 0.25 degrees (approximately 28km at the equator)
+- Each cluster gets its own changeset with a descriptive comment including the cluster number
+- Failed clusters don't prevent other clusters from being uploaded
+
+**Benefits:**
+- Handles large countries and widely dispersed elements
+- Prevents HTTP 413 errors from OSM API
+- Better changeset organization for reviewers
+- Automatic retry capability per cluster
+
+**Implementation:**
+- Maximum bounding box diagonal: 0.25 degrees
+- Configurable via `MaxBoundingBoxDiagonal` constant in `upload.go`
+- Clustering logic in `clustering.go`
+- 2-second delay between clusters to respect rate limits
 
 ## Safety Features
 
@@ -318,6 +347,18 @@ If elements fail validation:
 1. Check `output/osm_data_validated.json` for details
 2. Verify elevation ranges are appropriate
 3. Review invalid examples in console output
+
+### Changeset Bounding Box Errors (HTTP 413)
+
+If you get "HTTP 413 Payload too large" or "Changeset bounding box size limit exceeded" errors:
+
+**The tool now automatically handles this!** The upload process splits elements into multiple changesets based on geographic proximity. Each changeset is limited to a maximum bounding box diagonal of 0.25 degrees.
+
+If you still encounter issues:
+1. The tool will automatically create multiple changesets for you
+2. Check the console output for cluster information
+3. Failed clusters don't prevent other clusters from uploading
+4. Adjust `MaxBoundingBoxDiagonal` in `upload.go` if needed (make it smaller for stricter limits)
 
 ## Support
 
