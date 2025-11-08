@@ -191,12 +191,8 @@ type CountryInfo struct {
 	IntName string `json:"int_name,omitempty"`
 }
 
-// runListCountries queries and lists all available admin_level=2 countries
-func runListCountries() error {
-	fmt.Println("\n" + string(repeat('=', 60)))
-	fmt.Println("Available Countries (admin_level=2)")
-	fmt.Println(string(repeat('=', 60)))
-
+// fetchAllCountries queries the Overpass API and returns a sorted list of countries
+func fetchAllCountries() ([]CountryInfo, error) {
 	extractor := &OverpassExtractor{
 		OverpassURL: "https://overpass-api.de/api/interpreter",
 	}
@@ -207,8 +203,6 @@ area["admin_level"="2"];
 out tags;
 `
 
-	fmt.Println("Querying Overpass API for all countries...")
-	
 	client := &http.Client{
 		Timeout: 2 * time.Minute,
 	}
@@ -219,13 +213,13 @@ out tags;
 		bytes.NewBufferString("data="+query),
 	)
 	if err != nil {
-		return fmt.Errorf("failed to query Overpass API: %v", err)
+		return nil, fmt.Errorf("failed to query Overpass API: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("Overpass API returned status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("Overpass API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var result struct {
@@ -235,7 +229,7 @@ out tags;
 	}
 	
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return fmt.Errorf("failed to decode response: %v", err)
+		return nil, fmt.Errorf("failed to decode response: %v", err)
 	}
 
 	// Collect unique countries
@@ -262,6 +256,22 @@ out tags;
 	sort.Slice(countries, func(i, j int) bool {
 		return countries[i].Name < countries[j].Name
 	})
+
+	return countries, nil
+}
+
+// runListCountries queries and lists all available admin_level=2 countries
+func runListCountries() error {
+	fmt.Println("\n" + string(repeat('=', 60)))
+	fmt.Println("Available Countries (admin_level=2)")
+	fmt.Println(string(repeat('=', 60)))
+
+	fmt.Println("Querying Overpass API for all countries...")
+	
+	countries, err := fetchAllCountries()
+	if err != nil {
+		return err
+	}
 
 	fmt.Printf("\nFound %d countries:\n\n", len(countries))
 	

@@ -27,6 +27,7 @@ func main() {
 	oauthInteractive := flag.Bool("oauth-interactive", false, "Interactive OAuth setup")
 	country := flag.String("country", "România", "Country name to target (int_name from OSM)")
 	listCountries := flag.Bool("list-countries", false, "List all available admin_level=2 countries")
+	processAllCountries := flag.Bool("process-all-countries", false, "Process all available countries sequentially")
 
 	flag.Parse()
 
@@ -34,6 +35,14 @@ func main() {
 	if *listCountries {
 		if err := runListCountries(); err != nil {
 			log.Fatalf("List countries failed: %v", err)
+		}
+		return
+	}
+
+	// Handle process-all-countries flag
+	if *processAllCountries {
+		if err := runProcessAllCountries(*limit, *dryRun, *oauthInteractive); err != nil {
+			log.Fatalf("Process all countries failed: %v", err)
 		}
 		return
 	}
@@ -49,6 +58,7 @@ func main() {
 		fmt.Println("  elevate-romania --upload --oauth-interactive")
 		fmt.Println("  elevate-romania --country \"Moldova\" --extract")
 		fmt.Println("  elevate-romania --list-countries")
+		fmt.Println("  elevate-romania --process-all-countries --limit 2000 --dry-run")
 		return
 	}
 
@@ -135,4 +145,139 @@ func repeat(char rune, count int) []rune {
 		result[i] = char
 	}
 	return result
+}
+
+// runProcessAllCountries fetches all countries and processes each one with the full pipeline
+func runProcessAllCountries(limit int, dryRun bool, oauthInteractive bool) error {
+	fmt.Println("\n" + string(repeat('=', 60)))
+	fmt.Println("GLOBAL PROCESSING - Processing all countries")
+	fmt.Println(string(repeat('=', 60)))
+	fmt.Printf("Limit per country: %d\n", limit)
+	fmt.Printf("Dry-run mode: %v\n", dryRun)
+	fmt.Printf("Started: %s\n", time.Now().Format("2006-01-02 15:04:05"))
+	fmt.Println(string(repeat('=', 60)))
+
+	// Fetch all countries
+	fmt.Println("\nFetching list of all countries...")
+	countries, err := fetchAllCountries()
+	if err != nil {
+		return fmt.Errorf("failed to fetch countries: %v", err)
+	}
+
+	fmt.Printf("\nFound %d countries to process\n", len(countries))
+	
+	// Track statistics
+	successCount := 0
+	failedCountries := []string{}
+	
+	// Process each country
+	for i, country := range countries {
+		countryName := country.Name
+		fmt.Println("\n" + string(repeat('=', 60)))
+		fmt.Printf("Processing country %d/%d: %s\n", i+1, len(countries), countryName)
+		fmt.Println(string(repeat('=', 60)))
+		
+		// Process this country
+		if err := processCountry(countryName, limit, dryRun, oauthInteractive); err != nil {
+			log.Printf("ERROR: Failed to process %s: %v\n", countryName, err)
+			failedCountries = append(failedCountries, countryName)
+			// Continue with next country instead of stopping
+			continue
+		}
+		
+		successCount++
+		
+		// Add delay between countries to be nice to APIs
+		if i < len(countries)-1 {
+			fmt.Println("\nWaiting 5 seconds before processing next country...")
+			time.Sleep(5 * time.Second)
+		}
+	}
+	
+	// Print summary
+	fmt.Println("\n" + string(repeat('=', 80)))
+	fmt.Println("GLOBAL PROCESSING SUMMARY")
+	fmt.Println(string(repeat('=', 80)))
+	fmt.Printf("Total countries: %d\n", len(countries))
+	fmt.Printf("Successfully processed: %d\n", successCount)
+	fmt.Printf("Failed: %d\n", len(failedCountries))
+	
+	if len(failedCountries) > 0 {
+		fmt.Println("\nFailed countries:")
+		for _, c := range failedCountries {
+			fmt.Printf("  - %s\n", c)
+		}
+	}
+	
+	fmt.Printf("\nCompleted: %s\n", time.Now().Format("2006-01-02 15:04:05"))
+	fmt.Println(string(repeat('=', 80)) + "\n")
+	
+	return nil
+}
+
+// processCountry runs the full pipeline for a single country
+func processCountry(country string, limit int, dryRun bool, oauthInteractive bool) error {
+	// Create output directory
+	if err := os.MkdirAll("output", 0755); err != nil {
+		return fmt.Errorf("failed to create output directory: %v", err)
+	}
+
+	// Step 1: Extract
+	fmt.Println("\nStep 1: Extract")
+	if err := runExtract(country); err != nil {
+		return fmt.Errorf("extract failed: %v", err)
+	}
+
+	// Step 2: Filter
+	fmt.Println("\nStep 2: Filter")
+	if err := runFilter(); err != nil {
+		return fmt.Errorf("filter failed: %v", err)
+	}
+
+	// Step 3: Enrich
+	fmt.Println("\nStep 3: Enrich")
+	if err := runEnrich(limit); err != nil {
+		return fmt.Errorf("enrich failed: %v", err)
+	}
+
+	// Step 4: Validate
+	fmt.Println("\nStep 4: Validate")
+	if err := runValidate(); err != nil {
+		return fmt.Errorf("validate failed: %v", err)
+	}
+
+	// Step 5: Export CSV
+	fmt.Println("\nStep 5: Export CSV")
+	if err := runExportCSV(); err != nil {
+		return fmt.Errorf("export CSV failed: %v", err)
+	}
+
+	// Step 6: Upload (only if not dry-run)
+	fmt.Println("\nStep 6: Upload")
+	var oauthConfig *OAuthConfig
+	var err error
+
+	if oauthInteractive {
+		oauthConfig, err = InteractiveOAuthSetup()
+		if err != nil {
+			return fmt.Errorf("OAuth setup failed: %v", err)
+		}
+	} else {
+		oauthConfig, err = LoadOAuthConfig()
+		if err != nil {
+			return fmt.Errorf("failed to load OAuth config: %v", err)
+		}
+	}
+
+	isDryRun := dryRun
+	if !isDryRun && (oauthConfig.ClientID == "" || oauthConfig.ClientSecret == "" || oauthConfig.AccessToken == "") {
+		fmt.Println("\nWarning: OAuth credentials not provided, running in dry-run mode")
+		isDryRun = true
+	}
+
+	if err := runUpload(isDryRun, oauthConfig, country); err != nil {
+		return fmt.Errorf("upload failed: %v", err)
+	}
+
+	return nil
 }
